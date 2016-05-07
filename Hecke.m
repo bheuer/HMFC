@@ -202,7 +202,6 @@ function HeckeOperatorC(M,PP)
     bm:=hmdf`basis_matrix;
     bminv:=hmdf`basis_matrix_inv;
     
-
     T:=computeHeckeMatrix(M,PP);
     bmT := bm * ChangeRing(T, BaseRing(bm));
     TM := bmT * bminv;
@@ -214,70 +213,10 @@ function HeckeEigenvalues(T,PP)
     return Slopes(NewtonPolygon(f,PP));
 end function;
 
-
-procedure adjustFundamentalDomain(M)
-	N:=M`Level;
-	O:=M`QuaternionOrder;
-	B:=Algebra(O);
-	F:=BaseField(B);
-	ZF:=Integers(F);
-	
-	HMDF:=M`ModFrmHilDirFacts;
-	for i:=1 to #HMDF do
-		hmdf := HMDF[i];
-		units:=hmdf`max_order_units;
-		UU := Universe(units);
-		
-		ProjLine:=hmdf`PLD;
-		
-		sm:=ProjLine`splitting_map;
-		FD:=ProjLine`FD;
-		P1Rep:=ProjLine`P1Rep;
-		for xindex:=1 to #FD do
-			x:=FD[xindex];
-			if  (ZF!1) notin (x[1][1]*ZF+N) then //first coeff of rep is not invertible
-				for uindex :=1 to #units do
-					u:=units[uindex];
-					translate := (sm(u)*x);
-					if ZF!1 in translate[1][1]*ZF+N then //if translate invertible
-						//good, now we need to update a few thing.
-						
-						//just translate the stabilisers by inverse
-						uinv := u^(-1);
-
-						ProjLine`Stabs[xindex] := [ [* UU!(gamma[1]*uinv), 1*] :gamma in ProjLine`Stabs[xindex]];//nobody knows why, but elements of Stab[i] must first be unmasked from some "*". Hence the [1].
-						
-						//StabOrders doesn't change of course
-						//Lookuptable doesn't either, because we have chosen gamma*x (and not gamma*x*d for some d in (ZF/N)*).
-						
-						//Most importantly, because that's the point of all of this:
-						_,ProjLine`FD[xindex]:=P1Rep(sm(u)*x,false,false);
-						//hopefully that's enough
-						break;
-					end if;
-				if uindex ge #units then
-					//I really hope you never get here, but I can't prove it right now.
-
-					assert false;
-				end if;
-				end for;
-				
-			end if;
-		end for;
-		hmdf`PLD:=ProjLine;
-		M`ModFrmHilDirFacts[i]:=hmdf;//THIS LINE IS NEEDED! #TalkingAboutMemory
-		
-	end for;
-end procedure;
-
 function HilbertCuspFormCharacter(F,N,weight,C)
 	
 	M:=HilbertCuspForms(F,N,weight);
 	_:=Dimension(M);//computes everything
-
-	//need to tweak projective line until all reps in the
-	//fundamental domain have mod invertible first entry.
-	//adjustFundamentalDomain(M);
 	
 	is_character_trivial:=(Order(C) eq 1);
 	M`DirichletCharacter:=C;
