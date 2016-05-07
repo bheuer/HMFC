@@ -3,25 +3,22 @@ delete basis_matrix;
 delete HeckeOperatorC;
 delete HeckeEigenvalues;
 delete twisted_invariant_space;
+delete HilbertCuspFormCharacter;
 
 Attach("Hecke.m");
-import "Hecke.m": twisted_invariant_space,compute,HeckeOperatorC,basis_matrix,HeckeEigenvalues;
+import "Hecke.m": twisted_invariant_space,HeckeOperatorC,basis_matrix,HeckeEigenvalues,HilbertCuspFormCharacter;
 
 F<x>:=QuadraticField(5);
 ZF := Integers(F);
 N:= 8*ZF;
 
-M:=HilbertCuspForms(F,N,[3,3]);
-Dimension(M);//computes everything
+C:=[c : c in Elements(DirichletGroup(N)) | Order(c) le 2][1];
+M:=HilbertCuspFormCharacter(F,N,[8,8],C);
 
-C:=[c : c in Elements(DirichletGroup(N)) | Order(c) le 2][3];
 
 PP2:= 2*ZF.1*ZF;
 PP3:= 3*ZF.1*ZF;
 PP7:= 7*ZF.1*ZF;
-
-CFD,L,L_inv:=basis_matrix(M,C);
-
 
 O:=M`QuaternionOrder;
 B:=Algebra(O);
@@ -43,9 +40,9 @@ weight_field:= hmdf`weight_base_field;
 weight_field2:=Compositum(weight_field,Codomain(C));//TODO:Does that actually work?
 	
 
-T2:=HeckeOperatorC(M,PP2,C,L,L_inv,CFD);
-T3:=HeckeOperatorC(M,PP3,C,L,L_inv,CFD);
-//T7:=HeckeOperatorC(M,PP7,C,L,L_inv,CFD);
+T2:=HeckeOperatorC(M,PP2);
+T3:=HeckeOperatorC(M,PP3);
+//T7:=HeckeOperatorC(M,PP7);
 
 assert T2*T3 eq T3*T2;
 
