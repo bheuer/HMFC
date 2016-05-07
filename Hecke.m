@@ -40,24 +40,24 @@ function twisted_invariant_space(M,alpha)
 
     res := [g*x : g in Gamma];
     
-    if x[1][1] ne 0 and Gcd(Norm(N),Norm(x[1][1]*ZF)) eq 1 then
-        chi:=[(Modinv(x[1][1],N)*r[1][1]) mod N : r in res ];
-    else
-        chi:=[(Modinv(x[2][1],N)*r[2][1]) mod N : r in res ];
-    end if;
+    //in fact, after our update, x[1][1] is always invertible
+    chi:=[(Modinv(x[1][1],N)*r[1][1]) mod N : r in res ];
+    //if x[1][1] ne 0 and (ZF!1 in x[1][1]*ZF.1*ZF+N) then
+    //    
+    //else
+    //   chi:=[(Modinv(x[2][1],N)*r[2][1]) mod N : r in res ];
+    //end if;//one of these must work because P1(ZF/N) has coprime entries
+    
     WR_chi_1:=map<B -> M2K|q :-> WR_(q)*(C(chi[Position(S,q)])^(-1))>;
     
     L := InvariantSpace(Stabs[alpha],WR_chi_1,weight_dim,weight_field);
     return L;
 end function;
 
-function basis_matrix(M,i)
-
-    HMDFs := M`ModFrmHilDirFacts; 
-    hmdf:=HMDFs[i];
+function basis_matrix(M,hmdf)
+	
     ProjLine:=hmdf`PLD; 
     stabs:=ProjLine`Stabs;
-    hmdf`weight_base_field:=M`weight_base_field; //has been updated to contain Codomain(C)
     weight_field:= hmdf`weight_base_field;
     
     contrib_orbs:=[];
@@ -132,8 +132,18 @@ function computeHeckeMatrix(M,PP)
                         elt_data:=lookup[u0];
                         n:=Index(CFDm, elt_data[1]);
                         if n ne 0 then //is this a contributing orbit? If not, don't need to compute
+                            
+                            
+							"u";u;
+							"u0";u0;
+                            
                             x_n := FundamentalDomain[elt_data[1]]; //==FundamentalDomain[CFDm[n]] by def of index n
                             o:=max_order_units[elt_data[2]];
+                            
+                            lhs:= SplittingMap(ts[ll])*x_m;
+                            rhs:=SplittingMap(o)*x_n;
+                            
+                            "lhs";lhs;"rhs";rhs;
                             
                             //At this point we have
                             //x_mm pi^{-1} ^O_0*  = t^{-1}o x_n  ^O_0*
@@ -175,11 +185,21 @@ function computeHeckeMatrix(M,PP)
                             //
                             // f(x_m pi^{-1}) = f(x_n)^{o^{-1}t} chi(a)^{-1}
                             
+                            SplittingMap(o^(-1))*SplittingMap(ts[ll])*x_m;
+							
                             a1 := (SplittingMap(o^(-1))*SplittingMap(ts[ll])*x_m)[1][1];
+							
                             a2 := x_n[1][1];//this is an element of the FD so should hopefully be invertible at least after reiteration
                             a:= a1*a2^(-1);
                             
-                            M:= WR(fac)*(C(a))^(-1); //although this is C(a^(-1)),
+                            
+							if not ZF!1 in (a*ZF.1*ZF+N) then
+								"hazard";
+								continue;
+							end if;
+								
+                            
+                            T:= WR(fac)*(C(a))^(-1); //although this is C(a^(-1)),
                                                      //it is easier to just invert C(a)
                                                      //instead of finding a modular
                                                      //inverse of a mod PP
@@ -188,7 +208,7 @@ function computeHeckeMatrix(M,PP)
 
                             //So we just need to add everything up:
                             X := ExtractBlock(Tp, (n-1)*wd+1, (mm-1)*wd+1, wd, wd);
-                            InsertBlock(~Tp, X+M, (n-1)*wd+1, (mm-1)*wd+1);
+                            InsertBlock(~Tp, X+T, (n-1)*wd+1, (mm-1)*wd+1);
                         end if;
                     end if;
                 end for;
@@ -243,8 +263,8 @@ procedure adjustFundamentalDomain(M)
 		for xindex:=1 to #FD do
 			x:=FD[xindex];
 			if  (ZF!1) notin (x[1][1]*ZF+N) then //first coeff of rep is not invertible
-			
-				for u in units do
+				for uindex :=1 to #units do
+					u:=units[uindex];
 					translate := (sm(u)*x);
 					if ZF!1 in translate[1][1]*ZF+N then //if translate invertible
 						//good, now we need to update a few thing.
@@ -252,22 +272,27 @@ procedure adjustFundamentalDomain(M)
 						//just translate the stabilisers by inverse
 						uinv := u^(-1);
 
-						ProjLine`Stabs[i] := [ [* UU!(gamma[1]*uinv), 1*] :gamma in ProjLine`Stabs[i]];//nobody knows why, but elements of Stab[i] must first be unmasked from some "*". Hence the [1].
+						ProjLine`Stabs[xindex] := [ [* UU!(gamma[1]*uinv), 1*] :gamma in ProjLine`Stabs[xindex]];//nobody knows why, but elements of Stab[i] must first be unmasked from some "*". Hence the [1].
 						
 						//StabOrders doesn't change of course
 						//Lookuptable doesn't either, because we have chosen gamma*x (and not gamma*x*d for some d in (ZF/N)*).
 						
 						//Most importantly, because that's the point of all of this:
 						_,ProjLine`FD[xindex]:=P1Rep(sm(u)*x,false,false);
-						
 						//hopefully that's enough
 						break;
 					end if;
-				//I really hope you never get here, but I can't prove it right now.
+				if uindex ge #units then
+					//I really hope you never get here, but I can't prove it right now.
+
+					assert false;
+				end if;
 				end for;
 				
 			end if;
 		end for;
+		hmdf`PLD:=ProjLine;
+		M`ModFrmHilDirFacts[i]:=hmdf;//THIS LINE IS NEEDED! #TalkingAboutMemory
 	end for;
 end procedure;
 
@@ -277,12 +302,12 @@ function HilbertCuspFormCharacter(F,N,weight,C)
 	_:=Dimension(M);//computes everything
 
 	//need to tweak projective line until all reps in the
-	//fundamental domain have mod invertible first entry. 
+	//fundamental domain have mod invertible first entry.
 	adjustFundamentalDomain(M);
 	
 	is_character_trivial:=(Order(C) eq 1);
 	M`DirichletCharacter:=C;
-	if is_character_trivial then
+	if not is_character_trivial then//this is to make sure the old Hecke operators still work in the case of trivial character
 		M`weight_base_field := Compositum(M`weight_base_field,Codomain(C));
 	end if;
 	
@@ -290,9 +315,11 @@ function HilbertCuspFormCharacter(F,N,weight,C)
 	
 	dim:=0;
 	for i:=1 to #HMDF do
-		hdmf :=basis_matrix(M,i);
-		HMDF[i]:=hdmf;
-		dim+:=Nrows(hdmf`basis_matrix);
+		HMDF[i]`weight_base_field := M`weight_base_field;
+	
+		hmdf :=basis_matrix(M,HMDF[i]);
+		HMDF[i]:=hmdf;
+		dim+:=Nrows(hmdf`basis_matrix);
 	end for;
 	
 	if is_character_trivial then
