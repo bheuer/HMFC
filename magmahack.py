@@ -3,7 +3,7 @@ import time
 import pyperclip
 
 from subprocess import Popen, PIPE
-
+import sys
 
 
 
@@ -26,6 +26,8 @@ def Command(Seq):
 def FocusWindow(id_):
     Popen(["xdotool", "windowfocus", id_])
     time.sleep(.1)
+def RaiseWindow(id_):
+    Popen(["xdotool", "windowraise", id_])
 
 '''
 SETUP:
@@ -99,8 +101,14 @@ def setupSession():
 WINDOWMAGMA = check_output(["xdotool",'search',"--name","MagmaTerminal"])
 WINDOWNOW = check_output(["xdotool","getwindowfocus"])
 FocusWindow(WINDOWMAGMA)
+RaiseWindow(WINDOWMAGMA)
 
-updateFile("Hecke.m")
-setupMagma("HeckeUpstartscript.m")
-FocusWindow(WINDOWNOW)
 
+file_called = sys.argv[1]
+if file_called == "Hecke.m":
+	updateFile(file_called)
+	setupMagma("HeckeUpstartscript.m")
+	FocusWindow(WINDOWNOW)
+else:
+	setupMagma(file_called)
+	
