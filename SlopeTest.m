@@ -1,21 +1,4 @@
-delete compute;
-delete basis_matrix;
-delete HeckeOperatorC;
-delete HeckeEigenvalues;
-delete twisted_invariant_space;
-delete HilbertCuspFormCharacter;
 
-Attach("Hecke.m");
-import "Hecke.m": twisted_invariant_space,HeckeOperatorC,basis_matrix,HeckeEigenvalues,HilbertCuspFormCharacter;
-
-F<x>:=QuadraticField(5);
-ZF := Integers(F);
-N:= 12*ZF;
-
-C:=[c : c in Elements(DirichletGroup(N)) | Order(c) le 2][1];
-M:=HilbertCuspFormCharacter(F,N,[4,4],C);
-
-/*
 PP2:= 2*ZF.1*ZF;
 PP3:= 3*ZF.1*ZF;
 PP7:= 7*ZF.1*ZF;
@@ -53,4 +36,3 @@ assert T2*T3 eq T3*T2;
 f:=CharacteristicPolynomial(T2);
 NP:=NewtonPolygon(f,PP2);
 Slopes(NP);
-*/

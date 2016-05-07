@@ -178,6 +178,7 @@ function computeHeckeMatrix(M,PP)
                             a1 := (SplittingMap(o^(-1))*SplittingMap(ts[ll])*x_m)[1][1];
                             a2 := x_n[1][1];//this is an element of the FD so should hopefully be invertible at least after reiteration
                             a:= a1*a2^(-1);
+                            
                             M:= WR(fac)*(C(a))^(-1); //although this is C(a^(-1)),
                                                      //it is easier to just invert C(a)
                                                      //instead of finding a modular
@@ -221,17 +222,84 @@ function HeckeEigenvalues(T,PP)
 end function;
 
 
-function HilbertCuspFormCharacter(F,N,weight,C)
-	M:=HilbertCuspForms(F,N,weight);
-	Dimension(M);//computes everything
+procedure adjustFundamentalDomain(M)
+	N:=M`Level;
+	O:=M`QuaternionOrder;
+	B:=Algebra(O);
+	F:=BaseField(B);
+	ZF:=Integers(F);
 	
+	HMDF:=M`ModFrmHilDirFacts;
+	for i:=1 to #HMDF do
+		hmdf := HMDF[i];
+		units:=hmdf`max_order_units;
+		UU := Universe(units);
+		
+		ProjLine:=hmdf`PLD;
+		
+		sm:=ProjLine`splitting_map;
+		FD:=ProjLine`FD;
+		P1Rep:=ProjLine`P1Rep;
+		for xindex:=1 to #FD do
+			x:=FD[xindex];
+			if  (ZF!1) notin (x[1][1]*ZF+N) then //first coeff of rep is not invertible
+			
+				for u in units do
+					translate := (sm(u)*x);
+					if ZF!1 in translate[1][1]*ZF+N then //if translate invertible
+						//good, now we need to update a few thing.
+						
+						//just translate the stabilisers by inverse
+						uinv := u^(-1);
+
+						ProjLine`Stabs[i] := [ [* UU!(gamma[1]*uinv), 1*] :gamma in ProjLine`Stabs[i]];//nobody knows why, but elements of Stab[i] must first be unmasked from some "*". Hence the [1].
+						
+						//StabOrders doesn't change of course
+						//Lookuptable doesn't either, because we have chosen gamma*x (and not gamma*x*d for some d in (ZF/N)*).
+						
+						//Most importantly, because that's the point of all of this:
+						_,ProjLine`FD[xindex]:=P1Rep(sm(u)*x,false,false);
+						
+						//hopefully that's enough
+						break;
+					end if;
+				//I really hope you never get here, but I can't prove it right now.
+				end for;
+				
+			end if;
+		end for;
+	end for;
+end procedure;
+
+function HilbertCuspFormCharacter(F,N,weight,C)
+	
+	M:=HilbertCuspForms(F,N,weight);
+	_:=Dimension(M);//computes everything
+
+	//need to tweak projective line until all reps in the
+	//fundamental domain have mod invertible first entry. 
+	adjustFundamentalDomain(M);
+	
+	is_character_trivial:=(Order(C) eq 1);
 	M`DirichletCharacter:=C;
-	M`weight_base_field = Compositum(M`weight_base_field,Codomain(C));
+	if is_character_trivial then
+		M`weight_base_field := Compositum(M`weight_base_field,Codomain(C));
+	end if;
+	
 	HMDF := M`ModFrmHilDirFacts;
 	
+	dim:=0;
 	for i:=1 to #HMDF do
-		HMDF[i]:=basis_matrix(M,i);
+		hdmf :=basis_matrix(M,i);
+		HMDF[i]:=hdmf;
+		dim+:=Nrows(hdmf`basis_matrix);
 	end for;
+	
+	if is_character_trivial then
+		assert M`Dimension eq dim; //sanity check
+	else
+		M`Dimension := dim;
+	end if;
 	
 	M`ModFrmHilDirFacts := HMDF; //probably unneccesary, but who nows how magma deal with memory
 	
