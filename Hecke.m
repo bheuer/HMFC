@@ -6,6 +6,17 @@ Attach("/usr/local_machine/magma/package/Geometry/ModFrmHil/precompute.m");
 import "/usr/local_machine/magma/package/Geometry/ModFrmHil/precompute.m": get_tps;
 
 
+function findScaling(PL,N,v1,v2)
+	//return c such that c*v1 = v2
+	
+	P1Rep:=PL`P1Rep;
+	_,_,f1:=P1Rep(v1,false,true);
+	_,_,f2:=P1Rep(v2,false,true);
+	
+	//now we have f1*v1 = f2*v2
+	return f1*Modinv(f2,N);
+end function;	
+
 function twisted_invariant_space(M,alpha)
 
     O:=M`QuaternionOrder;
@@ -41,13 +52,11 @@ function twisted_invariant_space(M,alpha)
     res := [g*x : g in Gamma];
     
     //in fact, after our update, x[1][1] is always invertible
-    chi:=[(Modinv(x[1][1],N)*r[1][1]) mod N : r in res ];
-    //if x[1][1] ne 0 and (ZF!1 in x[1][1]*ZF.1*ZF+N) then
-    //    
-    //else
-    //   chi:=[(Modinv(x[2][1],N)*r[2][1]) mod N : r in res ];
-    //end if;//one of these must work because P1(ZF/N) has coprime entries
+    //was chi:=[(Modinv(x[1][1],N)*r[1][1]) mod N : r in res ];
+
+    chi:=[findScaling(ProjLine,N,x,r) : r in res ];
     
+
     WR_chi_1:=map<B -> M2K|q :-> WR_(q)*(C(chi[Position(S,q)])^(-1))>;
     
     L := InvariantSpace(Stabs[alpha],WR_chi_1,weight_dim,weight_field);
@@ -127,82 +136,46 @@ function computeHeckeMatrix(M,PP)
                 
                     x_m :=FundamentalDomain[mm];
                     u := mat*x_m;
-                    bool, u0 := P1Rep(u,true,false);
+                    bool, u0, a := P1Rep(u,true,true); //a*u=u0
                     if bool then
+						// at this point we have a*u=u0;
+						
                         elt_data:=lookup[u0];
                         n:=Index(CFDm, elt_data[1]);
                         if n ne 0 then //is this a contributing orbit? If not, don't need to compute
                             
-                            
-							"u";u;
-							"u0";u0;
-                            
                             x_n := FundamentalDomain[elt_data[1]]; //==FundamentalDomain[CFDm[n]] by def of index n
                             o:=max_order_units[elt_data[2]];
                             
-                            lhs:= SplittingMap(ts[ll])*x_m;
-                            rhs:=SplittingMap(o)*x_n;
+                            _,_,b:=P1Rep(SplittingMap(o)*x_n,false,true);
+                            //at this point we have 
+                            //b*o*x_n * ^O_1= u0 = a*t*x_m ^O_1.
+                            //We therefore set:
+                            c:=a*Modinv(b,N);
                             
-                            "lhs";lhs;"rhs";rhs;
+                            //such that after comparing pi-valuations we get 
                             
-                            //At this point we have
-                            //x_mm pi^{-1} ^O_0*  = t^{-1}o x_n  ^O_0*
-                            //where o is the maximal order unit that                 
+                            //t*x_m *c*pi^(-1) ^O_1* = o*x_n ^O_1*
+                            
+                            //where pi is some element with pi-norm 1 st
+                            //the upper left coefficient is 1, ie it is 
+                            //in ^O_1 (without units). Moreover,
+                            //o is the maximal order unit that                 
                             //translates the rep in the fundamental domain           
                             //x_n to the element (t x_mm pi^{-1} ^O_0*) in           
                             //P^1(ZF/N). So we will later mult out o^{-1}*t
 
                             fac := o^(-1)*ts[ll];
-                            //finally, we have to adjust pi as follows:
-                            // we know that it is in ^O_0*, but we want it
-                            // to be in ^O_1*. So we just need to multiply
-                            // by an appropriate element of Z(A) and then
-                            // mult out by chi( this element ). In order to          
-                            // do so, note that we know
-                            //           (d  *)
-                            //      pi = (0  *)
-                            // for some invertible element d at pp. So we            
-                            // just need to find d. To this end, reorder as
-                            //
-                            //    o^{-1} t x_mm = x_n ^O_1* u*pi
-                            //
-                            // Then we can just compute the upper left entry
-                            // of o^{-1} t x_mm (this does not dep on                
-                            // choice of x_mm) and the upper left entry of
-                            // x_n (does not dep on choice of x_n) and thus
-                            // we get
-                            //
-                            //   a(o^{-1} t x_mm) = a(x_n) *a(u*pi)
-                            //
-                            // This gives a:=a(u*pi) mod PP. We then                 
-                            // just need to multiply through by a to get
-                            // a suitable representative pi' = a^{-1}u*pi
-                            // which is in O_1 and then we get
-                            //
-                            // x_m pi'^{-1} ^O_1*= t^{-1}o x_n ^O_1*a^{-1}
-                            //
-                            // Therefore, we compute the desired image to be
-                            //
-                            // f(x_m pi^{-1}) = f(x_n)^{o^{-1}t} chi(a)^{-1}
                             
-                            SplittingMap(o^(-1))*SplittingMap(ts[ll])*x_m;
-							
-                            a1 := (SplittingMap(o^(-1))*SplittingMap(ts[ll])*x_m)[1][1];
-							
-                            a2 := x_n[1][1];//this is an element of the FD so should hopefully be invertible at least after reiteration
-                            a:= a1*a2^(-1);
+                            // So when we just mult out c via the char C.
+                            // We thus compute the desired image to be:
+                            //
+                            // f(x_m pi^{-1}) = f(x_n)^{o^{-1}t} chi(c)^{-1}
+                           
+							//TODO: check whether I have to invert chi here.
+                           
+                            T:= WR(fac)*(C(c));
                             
-                            
-							if not ZF!1 in (a*ZF.1*ZF+N) then
-								"hazard";
-								continue;
-							end if;
-								
-                            
-                            T:= WR(fac)*(C(a))^(-1); //although this is C(a^(-1)),
-                                                     //it is easier to just invert C(a)
-                                                     //instead of finding a modular
-                                                     //inverse of a mod PP
                             // note that WR(gamma) is -^{gamma}, so this is the right element to act with
                             // we now have the matrix for which f(x_m pi^{-1}) = f(x_n) * M
 
@@ -293,6 +266,7 @@ procedure adjustFundamentalDomain(M)
 		end for;
 		hmdf`PLD:=ProjLine;
 		M`ModFrmHilDirFacts[i]:=hmdf;//THIS LINE IS NEEDED! #TalkingAboutMemory
+		
 	end for;
 end procedure;
 
@@ -303,7 +277,7 @@ function HilbertCuspFormCharacter(F,N,weight,C)
 
 	//need to tweak projective line until all reps in the
 	//fundamental domain have mod invertible first entry.
-	adjustFundamentalDomain(M);
+	//adjustFundamentalDomain(M);
 	
 	is_character_trivial:=(Order(C) eq 1);
 	M`DirichletCharacter:=C;
