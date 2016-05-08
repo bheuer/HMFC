@@ -245,7 +245,6 @@ function HeckeOperatorC(M,PP)
     bminv:=M`basis_matrix_big_inv;
     
     T:=computeHeckeMatrix(M,PP);
-    Nrows(T);
     bmT := bm * ChangeRing(T, BaseRing(bm));
     TM := bmT * bminv;
     return TM;

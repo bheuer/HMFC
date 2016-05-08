@@ -9,13 +9,13 @@ def Press(Seq):
     if type(Seq)==str:
         Seq = [Seq]
     Popen(['xdotool',"key"]+Seq)
-    time.sleep(0.1)
+    time.sleep(.2)
    
 def Type(Seq):
     if type(Seq)==str:
         Seq = [Seq]
     Popen(['xdotool',"type"]+Seq)
-    time.sleep(.1)
+    time.sleep(.2)
 
 def Command(Seq):
     Type(Seq)
@@ -41,7 +41,9 @@ def updateFile(filename="Hecke.m"):
     
     FocusWindow(WINDOWMAGMA)
     
-    Press(["Control_L+a","1"])
+    Press(["Control_L+a","Control_L+c"]) #new screen window
+    time.sleep(0.2)
+    
     Type("vim "+filename)
     Press("Return")
 
@@ -62,7 +64,7 @@ def updateFile(filename="Hecke.m"):
     
     pyperclip.copy(temp)
     
-    Press(["Control_L+a","0"])
+    Press(["Control_L+a","K","y"]) #close screen window
     
     FocusWindow(WINDOWNOW)
     
@@ -74,16 +76,9 @@ def setupMagma(setupscript):
     
     FocusWindow(WINDOWMAGMA)
     
-    Press(["Control_L+a","0"])
-    Command(["magma -b"])  #the combination of these two is just
-    time.sleep(1)
-    Press(["Control_L+c"]) # to ensure there is a new magma windows
-    Press(["Control_L+c"]) # with all prior calculations cancelled
-    Press(["Control_L+d"]) # and then started anew
-    Command(["magma -b"])
+    Press(["Control_L+a","Control_L+c"])
+    Command(["magma -b "+setupscript])
     
-    Press("Control_L+Shift+V")
-    pyperclip.copy(temp)
 
 WINDOWMAGMA = check_output(["xdotool",'search',"--name","MagmaTerminal"])
 WINDOWNOW = check_output(["xdotool","getwindowfocus"])
@@ -91,16 +86,10 @@ FocusWindow(WINDOWMAGMA)
 RaiseWindow(WINDOWMAGMA)
 
 file_called = sys.argv[1]
-if file_called == "Hecke.m":
-    updateFile(file_called)
-    setupMagma("HeckeUpstartscript.m")
-    FocusWindow(WINDOWNOW)
-elif file_called.endswith("script"):
-    updateFile(file_called)
 
-elif file_called.startswith("Job"):
-    updateFile(file_called)
-    setupMagma(file_called)
-else:
-    setupMagma(file_called)
+if file_called != "magmahack.py": #if __name__ != "__main__" <- have a little Python joke here
+	updateFile(file_called)
+	setupMagma(file_called)
+		
+
     
