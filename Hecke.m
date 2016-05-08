@@ -119,7 +119,6 @@ end function;
 
 function computeHeckeMatrix(M,PP)
 	//compute big Hecke matrix
-    //assume Cl^+F = 1 for now
 
 	cached, Tp := IsDefined(M`HeckeBig,PP);
 	if cached then
@@ -255,7 +254,23 @@ end function;
 function HeckeSlopes(M,PP)
 	T_PP:=HeckeOperatorC(M,PP);//is cached, so hopefully not too not inefficient
     f:=CharacteristicPolynomial(Matrix(T_PP));
-    return Slopes(NewtonPolygon(f,PP));
+    
+    //coefficients lie in weight_base_field, not nec. in F
+    WF:=M`weight_base_field;
+    OWF:=Integers(WF);
+    
+    PP_OWF:=0*OWF; //==PP*OWF
+    for g in Generators(PP) do
+		PP_OWF+:=g*OWF;
+	end for;
+	fact:=Factorisation(PP_OWF)[1]; //doesn't matter which one for valuation because extension is cyclotomic => Galois
+	
+	PPP:=fact[1];
+	e:=fact[2];
+	S:=[s/e : s in Slopes(NewtonPolygon(f,PPP))];
+	
+    return S;
+    
 end function;
 
 function HilbertCuspFormCharacter(F,N,weight,C)
