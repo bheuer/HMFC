@@ -1,56 +1,26 @@
-delete compute;
-delete basis_matrix;
 delete HeckeOperatorC;
-delete HeckeEigenvalues;
-delete twisted_invariant_space;
+delete HeckeSlopes;
 delete HilbertCuspFormCharacter;
 
 Attach("Hecke.m");
-import "Hecke.m": twisted_invariant_space,HeckeOperatorC,basis_matrix,HeckeEigenvalues,HilbertCuspFormCharacter;
+import "Hecke.m": HeckeOperatorC,HeckeSlopes,HilbertCuspFormCharacter;
 
-F<x>:=QuadraticField(5);
-ZF := Integers(F);
-N:= 12*ZF;
+F<x>:=QuadraticField(3);
+ZF<g> := Integers(F);
+N:= 8*ZF;
 
-C:=[c : c in Elements(DirichletGroup(N)) | Order(c) le 2][1];
-M:=HilbertCuspFormCharacter(F,N,[4,4],C);
-
-/*
-PP2:= 2*ZF.1*ZF;
-PP3:= 3*ZF.1*ZF;
-PP7:= 7*ZF.1*ZF;
-
-O:=M`QuaternionOrder;
-B:=Algebra(O);
-F:=BaseField(B);
-ZF:=Integers(F);
-N:=M`Level;
+C:=[c : c in Elements(DirichletGroup(N)) | Order(c) le 2][5];
+M:=HilbertCuspFormCharacter(F,N,[5,5],C);
 
 HMDFs := M`ModFrmHilDirFacts;
 hmdf:=HMDFs[1];
 ProjLine:=hmdf`PLD;
 FD:=ProjLine`FD;
-SplittingMap:=ProjLine`splitting_map;
-Stabs:=ProjLine`Stabs;
-P1Rep:=ProjLine`P1Rep;
-lookup:=ProjLine`Lookuptable;
-max_order_units:=hmdf`max_order_units;
-weight_dim := hmdf`weight_dimension;
-weight_field:= hmdf`weight_base_field;
-weight_field2:=Compositum(weight_field,Codomain(C));//TODO:Does that actually work?
 
-
+P2 := 2*ZF.1*ZF;
+PP2:= Factorisation(P2)[1][1];
 T2:=HeckeOperatorC(M,PP2);
+P3 := 3*ZF.1*ZF;
+PP3:= Factorisation(P3)[1][1];
 T3:=HeckeOperatorC(M,PP3);
-T7:=HeckeOperatorC(M,PP7);
-
-if Order(C) eq 1 then
-	assert T2 eq HeckeOperator(M,PP2);
-	assert T3 eq HeckeOperator(M,PP3);
-end if;
 assert T2*T3 eq T3*T2;
-
-f:=CharacteristicPolynomial(T2);
-NP:=NewtonPolygon(f,PP2);
-Slopes(NP);
-*/
