@@ -144,93 +144,95 @@ function computeHeckeMatrix(M,PP)
     
     Tp := MatrixRing(weight_field,Ncols(M`basis_matrix_big)) ! 0;//seems to be a nice way to describe the zero matrix: just coerce zero into ring
 	
+	inds := [l : l in [1..#HMDFs] | #(HMDFs[l]`CFD) ne 0];
+
 	row := 0;
 	col := 0;
-    for m in [1..#HMDFs] do
+    for m in inds do
 		hmdfm:=HMDFs[m];
 		PLm:=hmdfm`PLD;		//Projective LineT2
 		FDm:=PLm`FD;		//Fundamental Domain
 		CFDm:=hmdfm`CFD;	//fundamental domain reps of contributing orbits
 		
-        for l:=1 to #HMDFs do
+        for l in inds do
 			defined,ts:= IsDefined(Tps,<m,l>);
-            if not defined then continue; end if;
+            if defined then //don't try to just continue to get rid if the if! We need to increase row in any case
             
-			hmdfl	:=HMDFs[l];
-			PLl		:=hmdfl`PLD;	//Projective Line
-			FDl		:=PLl`FD;		//Fundamental Domain
-			lookup	:=PLl`Lookuptable;
-			P1Rep	:=PLl`P1Rep;
-			CFDl:=hmdfl`CFD;		//fundamental domain reps of contributing orbits
-			max_order_units := hmdfl`max_order_units;
+				hmdfl	:=HMDFs[l];
+				PLl		:=hmdfl`PLD;	//Projective Line
+				FDl		:=PLl`FD;		//Fundamental Domain
+				lookup	:=PLl`Lookuptable;
+				P1Rep	:=PLl`P1Rep;
+				CFDl:=hmdfl`CFD;		//fundamental domain reps of contributing orbits
+				max_order_units := hmdfl`max_order_units;
 
-			WR := hmdfl`weight_rep;
-		
-            Tpml := Matrix(weight_field, wd*#CFDl, wd*#CFDm, []);
-            
-            for ll:=1 to #ts do
-				mat:=SplittingMap(ts[ll]);
-                for mm:=1 to #CFDm do //basically sum over fundamental domain, but only contributing orbits matter
-                    x_m :=FDm[CFDm[mm]];
-                    u := mat*x_m;
-                    bool, u0, a := P1Rep(u,true,true); //a*u=u0
-                    if bool then
-						// at this point we have a*u=u0;
-						
-                        elt_data:=lookup[u0];
-                        n:=Index(CFDl, elt_data[1]);
-                        if n ne 0 then //is this a contributing orbit? If not, don't need to compute
-                            
-                            x_n := FDl[elt_data[1]]; //==FundamentalDomain[CFDl[n]] by def of index n
-                            o:=max_order_units[elt_data[2]];
-                            
-                            _,_,b:=P1Rep(SplittingMap(o)*x_n,false,true);
-                            //at this point we have 
-                            //b*o*x_n * ^O_1= u0 = a*t*x_m ^O_1.
-                            //We therefore set:
-                            c:=a*Modinv(b,N);
-                            
-                            //such that after comparing pi-valuations we get 
-                            
-                            //t*x_m *c*pi^(-1) ^O_1* = o*x_n ^O_1*
-                            
-                            //where pi is some element with pi-norm 1 st
-                            //the upper left coefficient is 1, ie it is 
-                            //in ^O_1 (without units). Moreover,
-                            //o is the maximal order unit that                 
-                            //translates the rep in the fundamental domain           
-                            //x_n to the element (t x_mm pi^{-1} ^O_0*) in           
-                            //P^1(ZF/N). So we will later mult out o^{-1}*t
-
-                            fac := o^(-1)*ts[ll];
-                            
-                            // So when we just mult out c via the char C.
-                            // We thus compute the desired image to be:
-                            //
-                            // f(x_m pi^{-1}) = f(x_n)^{o^{-1}t} chi(c)^{-1}
-                           
-							//TODO: check whether I have to invert chi here.
-                           
-                            T:= WR(fac)*(C(c));
-                            
-                            // note that WR(gamma) is -^{gamma}, so this is the right element to act with
-                            // we now have the matrix for which f(x_m pi^{-1}) = f(x_n) * M
-
-                            //So we just need to add everything up:
-                            X := ExtractBlock(Tpml, (n-1)*wd+1, (mm-1)*wd+1, wd, wd);
-                            InsertBlock(~Tpml, X+T, (n-1)*wd+1, (mm-1)*wd+1);
-                        end if;
-                    end if;
-                end for;
-            end for;
-            InsertBlock(~Tp, Tpml, row+1,col+1);
-            row +:= (#(HMDFs[l]`CFD)) * wd;
+				WR := hmdfl`weight_rep;
 			
+				Tpml:= Matrix(weight_field, wd*#CFDl, wd*#CFDm, []);
+				
+				for ll:=1 to #ts do
+					mat:=SplittingMap(ts[ll]);
+					for mm:=1 to #CFDm do //basically sum over fundamental domain, but only contributing orbits matter
+						x_m :=FDm[CFDm[mm]];
+						u := mat*x_m;
+						bool, u0, a := P1Rep(u,true,true); //a*u=u0
+						if bool then
+							// at this point we have a*u=u0;
+							
+							elt_data:=lookup[u0];
+							n:=Index(CFDl, elt_data[1]);
+							if n ne 0 then //is this a contributing orbit? If not, don't need to compute
+								
+								x_n := FDl[elt_data[1]]; //==FundamentalDomain[CFDl[n]] by def of index n
+								o:=max_order_units[elt_data[2]];
+								
+								_,_,b:=P1Rep(SplittingMap(o)*x_n,false,true);
+								//at this point we have 
+								//b*o*x_n * ^O_1= u0 = a*t*x_m ^O_1.
+								//We therefore set:
+								c:=a*Modinv(b,N);
+								
+								//such that after comparing pi-valuations we get 
+								
+								//t*x_m *c*pi^(-1) ^O_1* = o*x_n ^O_1*
+								
+								//where pi is some element with pi-norm 1 st
+								//the upper left coefficient is 1, ie it is 
+								//in ^O_1 (without units). Moreover,
+								//o is the maximal order unit that                 
+								//translates the rep in the fundamental domain           
+								//x_n to the element (t x_mm pi^{-1} ^O_0*) in           
+								//P^1(ZF/N). So we will later mult out o^{-1}*t
+
+								fac := o^(-1)*ts[ll];
+								
+								// So when we just mult out c via the char C.
+								// We thus compute the desired image to be:
+								//
+								// f(x_m pi^{-1}) = f(x_n)^{o^{-1}t} chi(c)^{-1}
+							   
+								//TODO: check whether I have to invert chi here.
+								
+								T:= WR(fac)*C(c);
+								
+								// note that WR(gamma) is -^{gamma}, so this is the right element to act with
+								// we now have the matrix for which f(x_m pi^{-1}) = f(x_n) * M
+								
+								//So we just need to add everything up:
+								X := ExtractBlock(Tpml, (n-1)*wd+1, (mm-1)*wd+1, wd, wd);
+								InsertBlock(~Tpml, X+T, (n-1)*wd+1, (mm-1)*wd+1);
+							end if;
+						end if;
+					end for;
+				end for;
+				InsertBlock(~Tp, Tpml, row+1,col+1);
+			end if;
+            row +:= (#(HMDFs[l]`CFD)) * wd;
         end for;
         col +:= #(HMDFs[m]`CFD)* wd;
 		row := 0;
     end for;
-    M`HeckeBig[PP]:=Tp;
+    M`HeckeBig[PP]:=Tp;//cache
 return Tp;
 
 end function;
