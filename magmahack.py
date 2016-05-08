@@ -5,9 +5,7 @@ import pyperclip
 from subprocess import Popen, PIPE
 import sys
 
-
-
-def Keypress(Seq):
+def Press(Seq):
     if type(Seq)==str:
         Seq = [Seq]
     Popen(['xdotool',"key"]+Seq)
@@ -21,7 +19,7 @@ def Type(Seq):
 
 def Command(Seq):
     Type(Seq)
-    Keypress("Return")
+    Press("Return")
 
 def FocusWindow(id_):
     Popen(["xdotool", "windowfocus", id_])
@@ -39,14 +37,13 @@ on 0, there's a magma console
 on 1, there's a command line in ~
 '''
 
-
 def updateFile(filename="Hecke.m"):
     
     FocusWindow(WINDOWMAGMA)
     
-    Keypress(["Control_L+a","1"])
+    Press(["Control_L+a","1"])
     Type("vim "+filename)
-    Keypress("Return")
+    Press("Return")
 
     file = open(filename)
     text= "".join(i for i in file)
@@ -54,20 +51,18 @@ def updateFile(filename="Hecke.m"):
     pyperclip.copy(text)
     
     Type(":1, $d")
-    Keypress("Return")
+    Press("Return")
     
-    Keypress("i")
-    Keypress("Control_L+Shift+V")
+    Press("i")
+    Press("Control_L+Shift+V")
     
-    Keypress("Escape")
-    Type(":w")
-    Keypress("Return")
-    Type(":q")
-    Keypress("Return")
-    
-    Keypress(["Control_L+a","0"])
+    Press("Escape")
+    Command(":w")
+    Command(":q")
     
     pyperclip.copy(temp)
+    
+    Press(["Control_L+a","0"])
     
     FocusWindow(WINDOWNOW)
     
@@ -79,36 +74,33 @@ def setupMagma(setupscript):
     
     FocusWindow(WINDOWMAGMA)
     
-    Keypress(["Control_L+a","0"])
+    Press(["Control_L+a","0"])
+    Command(["magma -b"])  #the combination of these two is just
+    time.sleep(1)
+    Press(["Control_L+c"]) # to ensure there is a new magma windows
+    Press(["Control_L+c"]) # with all prior calculations cancelled
+    Press(["Control_L+d"]) # and then started anew
+    Command(["magma -b"])
     
-    Keypress(["Control_L+x"]) #delete what's currently on command line
-    Keypress("Control_L+Shift+V")
+    Press("Control_L+Shift+V")
     pyperclip.copy(temp)
-
-def setupSession():
-    WINDOWMAGMA = check_output(["xdotool",'search',"--name","MagmaTerminal"])
-    FocusWindow(WINDOWMAGMA)
-    
-    Command("screen")
-    Keypress("Return")
-    
-    Command("cd ~/Hecke.m")
-    Command("magma")
-    Keypress(["Control_L+a","Control_L+c"])
-    Keypress(["Control_L+a","0"])
-    return
 
 WINDOWMAGMA = check_output(["xdotool",'search',"--name","MagmaTerminal"])
 WINDOWNOW = check_output(["xdotool","getwindowfocus"])
 FocusWindow(WINDOWMAGMA)
 RaiseWindow(WINDOWMAGMA)
 
-
 file_called = sys.argv[1]
 if file_called == "Hecke.m":
-	updateFile(file_called)
-	setupMagma("HeckeUpstartscript.m")
-	FocusWindow(WINDOWNOW)
+    updateFile(file_called)
+    setupMagma("HeckeUpstartscript.m")
+    FocusWindow(WINDOWNOW)
+elif file_called.endswith("script"):
+    updateFile(file_called)
+
+elif file_called.startswith("Job"):
+    updateFile(file_called)
+    setupMagma(file_called)
 else:
-	setupMagma(file_called)
-	
+    setupMagma(file_called)
+    
