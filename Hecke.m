@@ -7,6 +7,8 @@ import "/usr/local_machine/magma/package/Geometry/ModFrmHil/precompute.m": get_t
 
 
 function findScaling(PL,N,v1,v2)
+	//given two equivalent representatives v1, v2 of
+	//the projective line P1(ZF/N),
 	//return c such that c*v1 = v2
 	
 	P1Rep:=PL`P1Rep;
@@ -17,7 +19,8 @@ function findScaling(PL,N,v1,v2)
 	return f1*Modinv(f2,N);
 end function;	
 
-function twisted_invariant_space(M,alpha)
+function twisted_invariant_space(M,hmdf,m)
+	//m is the fundamental domain index
 
     O:=M`QuaternionOrder;
     B:=Algebra(O);
@@ -26,8 +29,6 @@ function twisted_invariant_space(M,alpha)
     ZF:= Integers(F);
     N := M`Level;
 
-    HMDFs := M`ModFrmHilDirFacts; 
-    hmdf:=HMDFs[1];
     ProjLine:=hmdf`PLD; 
     FundamentalDomain:=ProjLine`FD;
     SplittingMap:=ProjLine`splitting_map;
@@ -42,12 +43,11 @@ function twisted_invariant_space(M,alpha)
     M2K:=MatrixRing(weight_field, weight_dim);
     WR_ := map<B-> M2K | q:-> WR(q)>;
 
-
     S := [B| u@Umap : u in Generators(U)] where U, Umap := UnitGroup(BaseField(B));
-    S cat:= [s[1] : s in Stabs[alpha] | s[1] notin {B|1,-1}];
+    S cat:= [s[1] : s in Stabs[m] | s[1] notin {B|1,-1}];
 
     Gamma:= [SplittingMap(s) : s in S];
-    x:=FundamentalDomain[alpha];
+    x:=FundamentalDomain[m];
 
     res := [g*x : g in Gamma];
     
@@ -55,11 +55,10 @@ function twisted_invariant_space(M,alpha)
     //was chi:=[(Modinv(x[1][1],N)*r[1][1]) mod N : r in res ];
 
     chi:=[findScaling(ProjLine,N,x,r) : r in res ];
-    
 
     WR_chi_1:=map<B -> M2K|q :-> WR_(q)*(C(chi[Position(S,q)])^(-1))>;
     
-    L := InvariantSpace(Stabs[alpha],WR_chi_1,weight_dim,weight_field);
+    L := InvariantSpace(Stabs[m],WR_chi_1,weight_dim,weight_field);
     return L;
 end function;
 
@@ -73,7 +72,7 @@ function basis_matrix(M,hmdf)
     L:=Matrix(weight_field, 0, 0,[]);
     
     for m0:=1 to #stabs do
-        N:=twisted_invariant_space(M,m0);
+        N:=twisted_invariant_space(M,hmdf,m0);
         if Rank(N) ne 0 then //This orbit contributes non-trivial functions
             Append(~contrib_orbs, m0);
             nb_rows:=Nrows(L)+Nrows(N);
@@ -94,57 +93,95 @@ function basis_matrix(M,hmdf)
     
 end function;
 
+
+function big_basis_matrix(M)
+	//write all separate matrices into one large block matrix
+	HMDF := M`ModFrmHilDirFacts;
+	nrows := &+ [Nrows(HMDF[m]`basis_matrix): m in [1..#HMDF]];
+	ncols := &+ [Ncols(HMDF[m]`basis_matrix): m in [1..#HMDF]];
+	B := Matrix(BaseRing(HMDF[1]`basis_matrix), nrows, ncols, []);
+	row := 1;
+	col := 1;
+	for hmdf in HMDF do
+		if not IsEmpty(hmdf`CFD) then
+			InsertBlock(~B, hmdf`basis_matrix, row, col);
+			row +:= Nrows(hmdf`basis_matrix);
+			col +:= Ncols(hmdf`basis_matrix);
+		end if;
+	end for;
+	Binv := Transpose(Solution(Transpose(B), IdentityMatrix(BaseRing(B), Nrows(B))));
+	
+	M`basis_matrix_big := B;
+	M`basis_matrix_big_inv := Binv;
+	return M;
+end function;
+
+
 function computeHeckeMatrix(M,PP)
+	//compute big Hecke matrix
+    //assume Cl^+F = 1 for now
+
+	cached, Tp := IsDefined(M`HeckeBig,PP);
+	if cached then
+		return Tp;
+	end if;
+	
     O:=M`QuaternionOrder;
     B:=Algebra(O);
     F:=BaseField(B);
     ZF:=Integers(F);
     N:=M`Level;
     C:=M`DirichletCharacter;
+	SplittingMap := M`splitting_map;
 
+	HMDFs := M`ModFrmHilDirFacts;
+    
+    weight_field:= HMDFs[1]`weight_base_field;
+    Tps:=get_tps(M,PP);//I am sorry
+    
     HMDFs := M`ModFrmHilDirFacts;
-    hmdf:=HMDFs[1];
-    ProjLine:=hmdf`PLD;
-    FundamentalDomain:=ProjLine`FD;
-    SplittingMap:=ProjLine`splitting_map;
-    Stabs:=ProjLine`Stabs;
-    P1Rep:=ProjLine`P1Rep;
-    lookup:=ProjLine`Lookuptable;
-    max_order_units:=hmdf`max_order_units;
-    //assume Cl O = 1 for now
-    Tps:=get_tps(M,PP*ZF.1);
+    wd:=M`weight_dimension;
     
-    //m=1
-    CFDm:=hmdf`CFD; //contributing fundamental domain
-    CFDl:=hmdf`CFD;
+    Tp := MatrixRing(weight_field,Ncols(M`basis_matrix_big)) ! 0;//seems to be a nice way to describe the zero matrix: just coerce zero into ring
+	
+	row := 0;
+	col := 0;
+    for m in [1..#HMDFs] do
+		hmdfm:=HMDFs[m];
+		PLm:=hmdfm`PLD;		//Projective LineT2
+		FDm:=PLm`FD;		//Fundamental Domain
+		CFDm:=hmdfm`CFD;	//fundamental domain reps of contributing orbits
+		
+        for l:=1 to #HMDFs do
+			defined,ts:= IsDefined(Tps,<m,l>);
+            if not defined then continue; end if;
+            
+			hmdfl	:=HMDFs[l];
+			PLl		:=hmdfl`PLD;	//Projective Line
+			FDl		:=PLl`FD;		//Fundamental Domain
+			lookup	:=PLl`Lookuptable;
+			P1Rep	:=PLl`P1Rep;
+			CFDl:=hmdfl`CFD;		//fundamental domain reps of contributing orbits
+			max_order_units := hmdfl`max_order_units;
 
-    WR := hmdf`weight_rep;
-    wd := hmdf`weight_dimension;
-
-    weight_field:= hmdf`weight_base_field;
-    weight_field2:=Compositum(weight_field,Codomain(C));
-    
-    Tp := Matrix(weight_field2, wd*#CFDl, wd*#CFDm, []);
-
-    for l :=1 to #HMDFs do
-        for m:=1 to #HMDFs do
-            ts:=Tps[<m,l>];
+			WR := hmdfl`weight_rep;
+		
+            Tpml := Matrix(weight_field, wd*#CFDl, wd*#CFDm, []);
             
             for ll:=1 to #ts do
+				mat:=SplittingMap(ts[ll]);
                 for mm:=1 to #CFDm do //basically sum over fundamental domain, but only contributing orbits matter
-                    mat:=SplittingMap(ts[ll]);
-                
-                    x_m :=FundamentalDomain[mm];
+                    x_m :=FDm[CFDm[mm]];
                     u := mat*x_m;
                     bool, u0, a := P1Rep(u,true,true); //a*u=u0
                     if bool then
 						// at this point we have a*u=u0;
 						
                         elt_data:=lookup[u0];
-                        n:=Index(CFDm, elt_data[1]);
+                        n:=Index(CFDl, elt_data[1]);
                         if n ne 0 then //is this a contributing orbit? If not, don't need to compute
                             
-                            x_n := FundamentalDomain[elt_data[1]]; //==FundamentalDomain[CFDm[n]] by def of index n
+                            x_n := FDl[elt_data[1]]; //==FundamentalDomain[CFDl[n]] by def of index n
                             o:=max_order_units[elt_data[2]];
                             
                             _,_,b:=P1Rep(SplittingMap(o)*x_n,false,true);
@@ -180,15 +217,20 @@ function computeHeckeMatrix(M,PP)
                             // we now have the matrix for which f(x_m pi^{-1}) = f(x_n) * M
 
                             //So we just need to add everything up:
-                            X := ExtractBlock(Tp, (n-1)*wd+1, (mm-1)*wd+1, wd, wd);
-                            InsertBlock(~Tp, X+T, (n-1)*wd+1, (mm-1)*wd+1);
+                            X := ExtractBlock(Tpml, (n-1)*wd+1, (mm-1)*wd+1, wd, wd);
+                            InsertBlock(~Tpml, X+T, (n-1)*wd+1, (mm-1)*wd+1);
                         end if;
                     end if;
                 end for;
             end for;
+            InsertBlock(~Tp, Tpml, row+1,col+1);
+            row +:= (#(HMDFs[l]`CFD)) * wd;
+			
         end for;
+        col +:= #(HMDFs[m]`CFD)* wd;
+		row := 0;
     end for;
-
+    M`HeckeBig[PP]:=Tp;
 return Tp;
 
 end function;
@@ -197,26 +239,27 @@ end function;
 //This is the Hecke operator one should actually use. Insert invariants (basis matrix) for bm
 function HeckeOperatorC(M,PP)
 	
-    HMDFs := M`ModFrmHilDirFacts; 
-    hmdf:=HMDFs[1];
-    bm:=hmdf`basis_matrix;
-    bminv:=hmdf`basis_matrix_inv;
+    HMDFs := M`ModFrmHilDirFacts;
+    bm:=M`basis_matrix_big;
+    bminv:=M`basis_matrix_big_inv;
     
     T:=computeHeckeMatrix(M,PP);
+    Nrows(T);
     bmT := bm * ChangeRing(T, BaseRing(bm));
     TM := bmT * bminv;
     return TM;
 end function;
 
-function HeckeEigenvalues(T,PP)
-    f:=CharacteristicPolynomial(Matrix(T));
+function HeckeSlopes(M,PP)
+	T_PP:=HeckeOperatorC(M,PP);//is cached, so hopefully not too not inefficient
+    f:=CharacteristicPolynomial(Matrix(T_PP));
     return Slopes(NewtonPolygon(f,PP));
 end function;
 
 function HilbertCuspFormCharacter(F,N,weight,C)
 	
 	M:=HilbertCuspForms(F,N,weight);
-	_:=Dimension(M);//computes everything
+	_:=Dimension(M);//does all precomputation of MFHDs
 	
 	is_character_trivial:=(Order(C) eq 1);
 	M`DirichletCharacter:=C;
@@ -241,7 +284,8 @@ function HilbertCuspFormCharacter(F,N,weight,C)
 		M`Dimension := dim;
 	end if;
 	
-	M`ModFrmHilDirFacts := HMDF; //probably unneccesary, but who nows how magma deal with memory
+	M`ModFrmHilDirFacts := HMDF; //probably unneccesary, but who nows how magma deal with memory //update: yep, necessary
+	M:=big_basis_matrix(M);
 	
 	return M;
 
