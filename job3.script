@@ -1,0 +1,6 @@
+#!/bin/bash
+#PBS -N magma_job
+#PBS -m bea
+
+cd ${HOME}/Hecke
+magma -b  Job3.m
