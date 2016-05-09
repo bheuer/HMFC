@@ -252,7 +252,6 @@ end function;
 
 function HeckeSlopes(M,PP)
 	T_PP:=HeckeOperatorC(M,PP);//is cached, so hopefully not too not inefficient
-    f:=CharacteristicPolynomial(Matrix(T_PP));
     
     //coefficients lie in weight_base_field, not nec. in F
     WF:=M`weight_base_field;
@@ -266,9 +265,28 @@ function HeckeSlopes(M,PP)
 	
 	PPP:=fact[1];
 	e:=fact[2];
-	S:=[s/e : s in Slopes(NewtonPolygon(f,PPP))];
 	
-    return S;
+	f:=CharacteristicPolynomial(Matrix(T_PP));
+	NP:=NewtonPolygon(f,PPP);
+	S:=[s/e : s in Slopes(NP)];
+	V:=AllVertices(NP);	
+	
+	swm := [];
+	lastslope:=Infinity();
+	
+	for i:=1 to #V-1 do
+		v1:=V[i];
+		v2:=V[i+1];
+		mult:=v2[1]-v1[1];
+		slope:=(v1[2]-v2[2])/mult;
+		if #swm gt 0 and slope eq lastslope then
+			swm[#swm]:=<slope, mult+swm[#swm][2]>;
+		else 
+			Append(~swm,<slope/e,mult>);
+			lastslope:=slope;
+		end if;
+	end for;
+    return swm;
     
 end function;
 
