@@ -57,7 +57,6 @@ function twisted_invariant_space(M,hmdf,m)
     chi:=[findScaling(ProjLine,N,x,r) : r in res ];
 
     WR_chi_1:=map<B -> M2K|q :-> WR_(q)*(C(chi[Position(S,q)])^(-1))>;
-    
     L := InvariantSpace(Stabs[m],WR_chi_1,weight_dim,weight_field);
     return L;
 end function;
@@ -166,8 +165,9 @@ function computeHeckeMatrix(M,PP)
 				max_order_units := hmdfl`max_order_units;
 
 				WR := hmdfl`weight_rep;
-			
+				
 				Tpml:= Matrix(weight_field, wd*#CFDl, wd*#CFDm, []);
+				bcalgebra :=MatrixAlgebra(weight_field,wd);//base changed algebra, needed for coercion
 				
 				for ll:=1 to #ts do
 					mat:=SplittingMap(ts[ll]);
@@ -212,7 +212,7 @@ function computeHeckeMatrix(M,PP)
 							   
 								//TODO: check whether I have to invert chi here.
 								
-								T:= WR(fac)*C(c);
+								T:= (bcalgebra!WR(fac))*(weight_field!C(c));
 								
 								// note that WR(gamma) is -^{gamma}, so this is the right element to act with
 								// we now have the matrix for which f(x_m pi^{-1}) = f(x_n) * M
